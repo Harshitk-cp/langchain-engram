@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from langchain_core.memory import BaseMemory
+from ._compat import BaseMemory
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from pydantic import PrivateAttr
 
