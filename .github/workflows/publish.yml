@@ -1,0 +1,50 @@
+name: Publish
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Test
+        run: pytest tests/ -v
+
+      - name: Check version
+        id: version_check
+        run: |
+          VERSION=$(python -c "import tomllib; f=open('pyproject.toml','rb'); d=tomllib.load(f); print(d['project']['version'])")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/langchain-engram/$VERSION/json")
+          if [ "$HTTP" = "200" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        if: steps.version_check.outputs.skip == 'false'
+        run: |
+          pip install build
+          python -m build
+
+      - name: Publish
+        if: steps.version_check.outputs.skip == 'false'
+        env:
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          pip install twine
+          twine upload dist/* --username __token__ --password "$TWINE_PASSWORD"
